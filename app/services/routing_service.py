@@ -45,6 +45,10 @@ class RoutingService:
 
             "etc": [
                 "기생충", "말라리아", "열대병"
+            ],
+
+              "tb": [
+                "결핵, tb"
             ]
         }
 
