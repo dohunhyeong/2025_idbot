@@ -1,11 +1,11 @@
-from app.services.retrievers.base_retriever import BaseRetriever
+from app.retrievers.base_retriever import BaseRetriever
 from langchain_core.prompts import PromptTemplate
 
 
 class CommonRetriever(BaseRetriever):
 
-    def __init__(self):
-        super().__init__("common")
+    def __init__(self, llm, embeddings):
+        super().__init__("common", llm, embeddings)
 
     def _build_prompt(self):
 

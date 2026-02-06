@@ -1,21 +1,15 @@
 from abc import ABC, abstractmethod
-
 from langchain_community.vectorstores import FAISS
-from langchain_openai import OpenAIEmbeddings, ChatOpenAI
 from langchain_core.output_parsers import StrOutputParser
 
 
 class BaseRetriever(ABC):
 
-    def __init__(self, folder_name):
-
-        self.embeddings = OpenAIEmbeddings(
-            model="text-embedding-3-large"
-        )
+    def __init__(self, folder_name, llm, embeddings):
 
         self.vectorstore = FAISS.load_local(
             folder_path=f"resources/vectorstore/{folder_name}",
-            embeddings=self.embeddings,
+            embeddings=embeddings,
             index_name="faiss_index",
             allow_dangerous_deserialization=True
         )
@@ -24,24 +18,19 @@ class BaseRetriever(ABC):
             search_kwargs={"k": 3}
         )
 
-        self.llm = ChatOpenAI(
-            model="gpt-3.5-turbo",
-            temperature=0
-        )
-
+        self.llm = llm
         self.prompt = self._build_prompt()
-
         self.chain = self.prompt | self.llm | StrOutputParser()
 
     @abstractmethod
     def _build_prompt(self):
         pass
 
-    def invoke(self, question):
+    def invoke(self, question: str):
 
-        docs = self.retriever.invoke(question)
+        docs = self.retriever.get_relevant_documents(question)
 
-        context = "\n".join([d.page_content for d in docs])
+        context = "\n".join(d.page_content for d in docs)
 
         return self.chain.invoke({
             "context": context,
