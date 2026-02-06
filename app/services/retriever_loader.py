@@ -3,7 +3,11 @@ import importlib
 
 class RetrieverLoader:
 
-    BASE_PACKAGE = "app.services.retrievers"
+    BASE_PACKAGE = "app.retrievers"
+
+    def __init__(self, llm, embeddings):
+        self.llm = llm
+        self.embeddings = embeddings
 
     def load(self, retriever_names):
 
@@ -20,7 +24,12 @@ class RetrieverLoader:
 
                 retriever_class = getattr(module, class_name)
 
-                retriever_instances.append(retriever_class())
+                retriever_instances.append(
+                    retriever_class(
+                        llm=self.llm,
+                        embeddings=self.embeddings
+                    )
+                )
 
             except Exception as e:
                 print(f"[RetrieverLoader] load fail: {name} → {e}")
