@@ -11,7 +11,7 @@ class RoutingService:
 
             "respiratory": [
                 "인플루엔자", "코로나", "메르스", "사스",
-                "호흡기", "폐렴", "결핵"
+                "호흡기", "폐렴"
             ],
 
             "water_food": [
@@ -25,7 +25,8 @@ class RoutingService:
             ],
 
             "sexual_blood": [
-                "에이즈", "HIV", "매독", "B형간염", "C형간염",
+                "에이즈", "HIV", "매독",
+                "B형간염", "C형간염",
                 "성병", "혈액"
             ],
 
@@ -34,12 +35,13 @@ class RoutingService:
             ],
 
             "tick": [
-                "쯔쯔가무시", "라임병", "SFTS",
-                "진드기"
+                "쯔쯔가무시", "라임병",
+                "SFTS", "진드기"
             ],
 
             "healthcare": [
-                "MRSA", "CRE", "의료관련 감염",
+                "MRSA", "CRE",
+                "의료관련 감염",
                 "병원감염"
             ],
 
@@ -47,8 +49,10 @@ class RoutingService:
                 "기생충", "말라리아", "열대병"
             ],
 
-              "tb": [
-                "결핵, tb"
+            # ✅ TB 전용 리트리버
+            "tb": [
+                "결핵",
+                "TB"
             ]
         }
 
@@ -65,7 +69,7 @@ class RoutingService:
 
                 pattern = rf"\b{re.escape(keyword)}\b"
 
-                if re.search(pattern, text):
+                if re.search(pattern, text, flags=re.IGNORECASE):
                     query_obj.add_retriever(retriever_name)
                     break
 

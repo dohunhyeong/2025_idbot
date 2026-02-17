@@ -23,7 +23,6 @@ class CommonRetriever(BaseRetriever):
 
         Answer (한국어):
         """
-
         return PromptTemplate(
             input_variables=["context", "question"],
             template=template

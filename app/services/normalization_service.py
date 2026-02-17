@@ -6,7 +6,6 @@ from pathlib import Path
 class NormalizationService:
 
     def __init__(self):
-
         metadata_path = Path("resources/metadata/disease_metadata.csv")
         self.df = pd.read_csv(metadata_path).fillna("")
 
@@ -16,8 +15,12 @@ class NormalizationService:
 
         for _, row in self.df.iterrows():
 
-            name = row["name"]
-            grade = row["Grade"]
+            name = str(row.get("name", "")).strip()
+            grade = row.get("Grade", "")
+
+            # name이 없으면 스킵
+            if not name:
+                continue
 
             synonyms = [
                 row.get("name", ""),
@@ -29,17 +32,27 @@ class NormalizationService:
 
             for synonym in synonyms:
 
-                if not synonym:
+                synonym = str(synonym).strip()
+
+                # 빈 값 / Na / NA 등 제거
+                if not synonym or synonym.lower() in {"na", "n/a", "none"}:
                     continue
 
-                # 단어 경계 매칭
+                # 단어 경계 매칭 (영문 약어 대응 위해 IGNORECASE)
                 pattern = rf"\b{re.escape(synonym)}\b"
 
-                if re.search(pattern, text):
+                if re.search(pattern, text, flags=re.IGNORECASE):
 
-                    new_text = re.sub(pattern, name, text)
+                    new_text = re.sub(pattern, name, text, flags=re.IGNORECASE)
 
                     query_obj.update_normalized(new_text)
-                    query_obj.set_grade(int(grade))
 
-                    return
+                    # Grade가 비어있지 않을 때만 저장
+                    try:
+                        query_obj.set_grade(int(grade))
+                    except Exception:
+                        pass
+
+                    return query_obj  # ✅ 반드시 query_obj 반환
+
+        return query_obj  # ✅ 매칭이 없어도 query_obj 반환
