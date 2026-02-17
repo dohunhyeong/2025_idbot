@@ -48,12 +48,13 @@ async def query_endpoint(query_input: QueryInput):
         # 4️⃣ Retriever 객체 생성
         retrievers = retriever_loader.load(query_obj.retrievers)
 
-        # 5️⃣ 각 retriever 실행
-        answers = [
-            r.invoke(query_obj.normalized_text)
-            for r in retrievers
-        ]
-
+        # 5️⃣ 각 retriever 실행 (이름 포함)
+        answers = []
+        
+        for name, retriever in zip(query_obj.retrievers, retrievers):
+            result = retriever.invoke(query_obj.normalized_text)
+            answers.append((name, result))
+        
         # 6️⃣ Aggregator (기계적 병합)
         aggregated_text = aggregator.aggregate(answers)
 

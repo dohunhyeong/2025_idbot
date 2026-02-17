@@ -10,7 +10,7 @@ class BaseRetriever(ABC):
         self.vectorstore = FAISS.load_local(
             folder_path=f"resources/vectorstore/{folder_name}",
             embeddings=embeddings,
-            index_name="faiss_index",
+            index_name="index",
             allow_dangerous_deserialization=True
         )
 
@@ -28,7 +28,8 @@ class BaseRetriever(ABC):
 
     def invoke(self, question: str):
 
-        docs = self.retriever.get_relevant_documents(question)
+        # ✅ VectorStoreRetriever 호환 (현재 너의 langchain 버전)
+        docs = self.retriever.invoke(question)
 
         context = "\n".join(d.page_content for d in docs)
 
