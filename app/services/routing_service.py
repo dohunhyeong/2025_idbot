@@ -1,6 +1,3 @@
-import re
-
-
 class RoutingService:
 
     def __init__(self):
@@ -20,13 +17,13 @@ class RoutingService:
             ],
 
             "zoonotic": [
-                "광견병", "브루셀라", "탄저", "야토병",
+                "광견병", "브루셀라", "야토병",
                 "동물"
             ],
 
             "sexual_blood": [
-                "에이즈", "HIV", "매독",
-                "B형간염", "C형간염",
+                "에이즈", "hiv", "매독",
+                "b형간염", "c형간염",
                 "성병", "혈액"
             ],
 
@@ -36,11 +33,11 @@ class RoutingService:
 
             "tick": [
                 "쯔쯔가무시", "라임병",
-                "SFTS", "진드기"
+                "sfts", "진드기"
             ],
 
             "healthcare": [
-                "MRSA", "CRE",
+                "mrsa", "cre",
                 "의료관련 감염",
                 "병원감염"
             ],
@@ -52,13 +49,13 @@ class RoutingService:
             # ✅ TB 전용 리트리버
             "tb": [
                 "결핵",
-                "TB"
+                "tb"
             ]
         }
 
     def route_retrievers(self, query_obj):
 
-        text = query_obj.normalized_text
+        text = (query_obj.normalized_text or "").lower()
 
         # ⭐ common 항상 포함
         query_obj.add_retriever("common")
@@ -66,10 +63,7 @@ class RoutingService:
         for retriever_name, keywords in self.routing_rules.items():
 
             for keyword in keywords:
-
-                pattern = rf"\b{re.escape(keyword)}\b"
-
-                if re.search(pattern, text, flags=re.IGNORECASE):
+                if keyword.lower() in text:
                     query_obj.add_retriever(retriever_name)
                     break
 
