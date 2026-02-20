@@ -5,6 +5,8 @@ from pathlib import Path
 
 class NormalizationService:
 
+    NA_SET = {"na", "n/a", "none", "null", ""}
+
     def __init__(self):
         metadata_path = Path("resources/metadata/disease_metadata.csv")
         self.df = pd.read_csv(metadata_path).fillna("")
@@ -15,15 +17,16 @@ class NormalizationService:
 
         for _, row in self.df.iterrows():
 
-            name = str(row.get("name", "")).strip()
-            grade = row.get("Grade", "")
+            kor_name = str(row.get("kor_name", "")).strip()
+            grade = row.get("grade", "")
 
-            # name이 없으면 스킵
-            if not name:
+            if not kor_name:
                 continue
 
             synonyms = [
-                row.get("name", ""),
+                row.get("kor_name", ""),
+                row.get("eng_name", ""),
+                row.get("Abbreviation", ""),
                 row.get("synonym_1", ""),
                 row.get("synonym_2", ""),
                 row.get("synonym_3", ""),
@@ -34,25 +37,23 @@ class NormalizationService:
 
                 synonym = str(synonym).strip()
 
-                # 빈 값 / Na / NA 등 제거
-                if not synonym or synonym.lower() in {"na", "n/a", "none"}:
+                if not synonym or synonym.lower() in self.NA_SET:
                     continue
 
-                # 단어 경계 매칭 (영문 약어 대응 위해 IGNORECASE)
-                pattern = rf"\b{re.escape(synonym)}\b"
+                # 🔥 핵심: 한글도 정규식 사용
+                pattern = rf"{re.escape(synonym)}"
 
                 if re.search(pattern, text, flags=re.IGNORECASE):
 
-                    new_text = re.sub(pattern, name, text, flags=re.IGNORECASE)
+                    text = re.sub(pattern, kor_name, text, flags=re.IGNORECASE)
 
-                    query_obj.update_normalized(new_text)
+                    query_obj.update_normalized(text)
 
-                    # Grade가 비어있지 않을 때만 저장
                     try:
-                        query_obj.set_grade(int(grade))
-                    except Exception:
+                        query_obj.set_grade(int(float(grade)))
+                    except:
                         pass
 
-                    return query_obj  # ✅ 반드시 query_obj 반환
+                    return query_obj
 
-        return query_obj  # ✅ 매칭이 없어도 query_obj 반환
+        return query_obj
