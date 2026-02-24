@@ -26,10 +26,12 @@ from fastapi import FastAPI, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 import logging
+from app.api.admin_router import router as admin_router
 
 load_dotenv()
 
 app = FastAPI()
+app.include_router(admin_router)
 logger = logging.getLogger("uvicorn.error")
 
 @app.exception_handler(RequestValidationError)
