@@ -1,8 +1,7 @@
 from app.retrievers.base_retriever import BaseRetriever
 from langchain_core.prompts import PromptTemplate
 
-
-class BioterrorRetriever(BaseRetriever):
+class BioterrorRetriever_A(BaseRetriever):
 
     def __init__(self, llm, embeddings):
         super().__init__("bioterror", llm, embeddings)

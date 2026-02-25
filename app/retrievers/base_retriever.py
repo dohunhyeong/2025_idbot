@@ -3,7 +3,6 @@ import asyncio
 from langchain_community.vectorstores import FAISS
 from langchain_core.output_parsers import StrOutputParser
 
-
 class BaseRetriever(ABC):
     def __init__(self, folder_name, llm, embeddings):
         self.vectorstore = FAISS.load_local(
