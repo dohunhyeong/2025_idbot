@@ -1,7 +1,6 @@
 from app.retrievers.base_retriever import BaseRetriever
 from langchain_core.prompts import PromptTemplate
 
-
 class WaterFoodRetriever(BaseRetriever):
 
     def __init__(self, llm, embeddings):
