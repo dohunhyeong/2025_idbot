@@ -1,274 +1,259 @@
-# 법정 감염병 상담 RAG 챗봇
+# Busan CIDC RAG Chatbot Backend
 
-부산광역시 감염병관리지원단을 위한 법정 감염병 전문 상담 시스템입니다.
-사용자의 감염병 관련 질문에 대해 RAG(Retrieval-Augmented Generation) 파이프라인을 통해 신뢰성 있는 답변을 제공합니다.
+FastAPI 기반 Retrieval-Augmented Generation (RAG) 백엔드 서버\
+(FastAPIベース Retrieval-Augmented Generation（RAG）バックエンドサーバ)
 
----
+이 시스템은 법정 감염병 정보를 안내하는 챗봇의 백엔드이며 사용자 질문을
+분석하여 벡터 검색과 LLM을 이용해 답변을 생성한다.\
+(本システムは法定感染症情報を案内するチャットボットのバックエンドであり、ユーザーの質問を解析してベクトル検索とLLMを利用して回答を生成する。)
 
-## 목차
+------------------------------------------------------------------------
 
-- [주요 기능](#주요-기능)
-- [기술 스택](#기술-스택)
-- [프로젝트 구조](#프로젝트-구조)
-- [시작하기](#시작하기)
-- [환경 변수](#환경-변수)
-- [API 명세](#api-명세)
-- [파이프라인 흐름](#파이프라인-흐름)
-- [Retriever 목록](#retriever-목록)
-- [어드민 패널](#어드민-패널)
-- [새 Retriever 추가 방법](#새-retriever-추가-방법)
-- [알려진 이슈](#알려진-이슈)
+# System Overview (시스템 개요 / システム概要)
 
----
+주요 기능\
+(主な機能)
 
-## 주요 기능
+-   감염병 질의 응답 (感染症質問応答)
+-   질병 동의어 정규화 (疾病シノニム正規化)
+-   감염병 급수 질문 처리 (感染症等級質問処理)
+-   Intent 질문 처리 (인사 / 챗봇 정보)
+    (Intent質問処理：挨拶・チャットボット情報)
+-   Multi Vector Store Retrieval (マルチベクトルストア検索)
+-   LLM 기반 Answer Generation (LLMベース回答生成)
+-   MongoDB Query Logging (MongoDBログ保存)
+-   React Frontend API 제공 (ReactフロントエンドAPI提供)
 
-- **질의 정규화** — 131개 법정 감염병에 대한 동의어 사전(`disease_metadata.csv`)을 기반으로 질문 내 질병명을 표준 명칭으로 변환
-- **전문 Retriever 라우팅** — 질문 내 키워드를 분석해 해당 감염병 분류의 FAISS 벡터스토어로 자동 라우팅
-- **FAISS 유사도 검색** — 분류별 전문 인덱스에서 상위 k=3 문서를 검색
-- **LLM 기반 최종 요약** — 검색된 컨텍스트를 기반으로 한국어 답변 생성 (컨텍스트 내 정보만 활용)
-- **MongoDB 로그 저장** — 모든 질의·응답·지연시간을 Retriever별 컨텍스트와 함께 영구 보관
-- **관리자 패널** — 로그 조회·검색 API 제공
+------------------------------------------------------------------------
 
----
+# Architecture Diagram (아키텍처 다이어그램 / アーキテクチャ図)
 
-## 기술 스택
+``` mermaid
+flowchart TD
 
-| 구분 | 사용 기술 |
-|------|-----------|
-| 언어 | Python 3.11+ |
-| 웹 프레임워크 | FastAPI + Uvicorn |
-| 패키지 관리 | Poetry |
-| LLM | Ollama (`exaone3.5:7.8b`) |
-| 임베딩 모델 | Ollama (`bge-m3`) |
-| 벡터 DB | FAISS (파일 기반) |
-| 로그 DB | MongoDB (Motor — 비동기) |
-| 프론트엔드 | Vanilla JS + marked.js |
+User[User Question] --> API[FastAPI API /query]
 
----
+API --> InputService
+InputService --> IntentService
 
-## 프로젝트 구조
+IntentService -->|Greeting / Meta| IntentResponse[Return Intent Response]
 
-```
-.
-├── main.py                         # FastAPI 엔트리포인트 (현재 활성)
-├── app/
-│   ├── api/
-│   │   └── admin_router.py         # 어드민 API (/admin)
-│   ├── core/
-│   │   ├── llm_service.py          # ChatOllama 싱글톤
-│   │   └── embedding_service.py    # OllamaEmbeddings 싱글톤
-│   ├── models/
-│   │   └── query.py                # Query 데이터 모델
-│   ├── pipeline/
-│   │   └── pipeline.py             # RagPipeline 클래스 (신규 설계, 미연동)
-│   ├── retrievers/
-│   │   ├── base_retriever.py       # BaseRetriever (FAISS 로드, 체인 구성)
-│   │   ├── common.py               # 공통 Retriever (항상 포함)
-│   │   ├── respiratory.py          # 호흡기 감염병
-│   │   ├── water_food.py           # 수인성·식품매개 감염병
-│   │   ├── sexual_blood.py         # 성매개·혈액매개 감염병
-│   │   ├── zoonotic.py             # 인수공통 감염병
-│   │   ├── tick.py                 # 기생충·진드기매개 감염병
-│   │   ├── vaccine.py              # 예방접종 대상 감염병
-│   │   ├── healthcare.py           # 의료관련 감염병 (항생제 내성)
-│   │   ├── bioterror_A.py          # 생물테러 감염병 A군
-│   │   ├── bioterror_B.py          # 생물테러 감염병 B군
-│   │   ├── etc.py                  # 기타 감염병
-│   │   └── tb.py                   # 결핵 (FAISS 인덱스 미구비)
-│   └── services/
-│       ├── input_service.py        # 입력 검증 및 Query 객체 생성
-│       ├── normalization_service.py# 질병명 동의어 정규화
-│       ├── routing_service.py      # Retriever 라우팅 결정
-│       ├── retriever_loader.py     # 동적 Retriever 클래스 로드
-│       ├── aggregator_service.py   # Retriever 결과 병합
-│       ├── summarizer_service.py   # LLM 기반 최종 답변 생성
-│       ├── grade_service.py        # 감염병 급수 질문 단락 처리
-│       └── logging_service.py      # MongoDB 로그 저장
-├── infra/
-│   └── mongodb/
-│       ├── mongo_client.py         # Motor 클라이언트 싱글톤
-│       └── query_log_repository.py # 로그 CRUD
-├── resources/
-│   ├── metadata/
-│   │   └── disease_metadata.csv    # 131개 감염병 동의어 사전
-│   └── vectorstore/
-│       └── {retriever_name}/       # FAISS 인덱스 (index.faiss, index.pkl)
-└── web/
-    └── templates/
-        └── admin.html              # 어드민 UI
+IntentService -->|Disease Question| NormalizationService
+
+NormalizationService --> GradeService
+
+GradeService -->|Grade Question| GradeResponse[Return Grade Answer]
+
+GradeService -->|Normal Disease Query| RoutingService
+
+RoutingService --> RetrieverLoader
+
+RetrieverLoader --> MultiRetriever
+
+MultiRetriever --> CommonRetriever
+MultiRetriever --> RespiratoryRetriever
+MultiRetriever --> ZoonoticRetriever
+MultiRetriever --> WaterFoodRetriever
+MultiRetriever --> SexualBloodRetriever
+MultiRetriever --> TickRetriever
+MultiRetriever --> VaccineRetriever
+MultiRetriever --> HealthcareRetriever
+MultiRetriever --> TbRetriever
+
+CommonRetriever --> RetrievalResults
+RespiratoryRetriever --> RetrievalResults
+ZoonoticRetriever --> RetrievalResults
+WaterFoodRetriever --> RetrievalResults
+SexualBloodRetriever --> RetrievalResults
+TickRetriever --> RetrievalResults
+VaccineRetriever --> RetrievalResults
+HealthcareRetriever --> RetrievalResults
+TbRetriever --> RetrievalResults
+
+RetrievalResults --> Aggregator
+Aggregator --> Summarizer
+Summarizer --> SourceService
+
+SourceService --> FinalAnswer[Final Answer]
+
+FinalAnswer --> MongoDB[(MongoDB Logging)]
 ```
 
----
+------------------------------------------------------------------------
 
-## 시작하기
+# System Architecture (전체 시스템 구조 / システム構成)
 
-### 사전 요구사항
+``` mermaid
+flowchart LR
 
-- Python 3.11+
-- [Poetry](https://python-poetry.org/) 설치
-- [Ollama](https://ollama.ai/) 로컬 실행 + 모델 Pull 완료
-- MongoDB 접근 가능한 URI
-
-```bash
-# Ollama 모델 설치
-ollama pull exaone3.5:7.8b
-ollama pull bge-m3
+React[React Frontend] --> FastAPI[FastAPI Backend]
+FastAPI --> Pipeline[RAG Pipeline]
+Pipeline --> Retrieval[Retriever Layer]
+Retrieval --> VectorDB[(FAISS Vector Store)]
+Pipeline --> LLM[LLM Answer Generation]
+Pipeline --> Mongo[(MongoDB Logging)]
 ```
 
-### 설치 및 실행
+------------------------------------------------------------------------
 
-```bash
-# 의존성 설치
-poetry install
+# Project Structure (프로젝트 구조 / プロジェクト構造)
 
-# 서버 실행
-poetry run uvicorn main:app --reload
+    backend
+    │
+    ├ main.py
+    │
+    ├ app
+    │ ├ api
+    │ │ └ admin_router.py
+    │ │
+    │ ├ core
+    │ │ ├ llm_service.py
+    │ │ └ embedding_service.py
+    │ │
+    │ ├ services
+    │ │ ├ input_service.py
+    │ │ ├ intent_service.py
+    │ │ ├ grade_service.py
+    │ │ ├ normalization_service.py
+    │ │ ├ routing_service.py
+    │ │ ├ retriever_loader.py
+    │ │ ├ aggregator_service.py
+    │ │ ├ summarizer_service.py
+    │ │ ├ source_service.py
+    │ │ └ logging_service.py
+    │ │
+    │ └ retrievers
+    │   ├ common.py
+    │   ├ respiratory.py
+    │   ├ zoonotic.py
+    │   ├ water_food.py
+    │   ├ sexual_blood.py
+    │   ├ tick.py
+    │   ├ vaccine.py
+    │   ├ healthcare.py
+    │   └ tb.py
+    │
+    ├ infra
+    │ └ mongodb
+    │   ├ mongo_client.py
+    │   └ query_log_repository.py
+    │
+    └ resources
+      ├ metadata
+      │ └ disease_metadata.csv
+      └ vectorstore
 
-# 특정 호스트/포트로 실행
-poetry run uvicorn main:app --host 0.0.0.0 --port 8000
-```
+------------------------------------------------------------------------
 
----
+# API Endpoints (API 엔드포인트 / APIエンドポイント)
 
-## 환경 변수
+## Query API
 
-프로젝트 루트에 `.env` 파일을 생성하세요.
+POST /query
 
-```env
-MONGODB_URI=mongodb://localhost:27017   # MongoDB 접속 URI
-MONGODB_DB=openai                       # 사용할 DB명 (기본값: openai)
-ADMIN_TOKEN=your_secret_token           # 어드민 API 인증 토큰
-```
+Request (요청 / リクエスト)
 
----
-
-## API 명세
-
-### POST /query
-
-감염병 관련 질문을 받아 RAG 파이프라인을 통해 답변을 반환합니다.
-
-**요청**
-
-```json
+``` json
 {
-  "query": "콜레라의 잠복기와 증상은 무엇인가요?"
+  "query": "탄저의 예방 방법은?"
 }
 ```
 
-**응답**
+Response (응답 / レスポンス)
 
-```json
+``` json
 {
-  "query_id": "uuid",
-  "mongo_id": "mongodb_object_id",
-  "raw_query": "콜레라의 잠복기와 증상은 무엇인가요?",
-  "normalized_query": "콜레라의 잠복기와 증상은 무엇인가요?",
-  "grade": null,
-  "retrievers_used": ["common", "water_food"],
-  "latency_ms": 3241.5,
-  "answer": "콜레라의 잠복기는 수 시간에서 5일이며..."
+  "query_id": "...",
+  "mongo_id": "...",
+  "normalized_query": "탄저의 예방 방법은?",
+  "retrievers_used": ["common","bioterror"],
+  "latency_ms": 1800,
+  "answer": "..."
 }
 ```
 
-### GET /admin
+------------------------------------------------------------------------
 
-어드민 대시보드 페이지 (인증 불필요)
+# Admin APIs (관리자 API / 管理者API)
 
-### GET /admin/logs
+로그 조회\
+(ログ取得)
 
-최근 질의 로그 목록 조회 (헤더 `X-ADMIN-TOKEN` 필요)
+GET /admin/logs
 
-### GET /admin/logs/search?q={검색어}
+로그 검색\
+(ログ検索)
 
-로그 전문 검색 (헤더 `X-ADMIN-TOKEN` 필요)
+GET /admin/logs/search?q=탄저
 
-### GET /admin/logs/{mongo_id}
+로그 상세 조회\
+(ログ詳細取得)
 
-특정 질의 로그 상세 조회 (헤더 `X-ADMIN-TOKEN` 필요)
+GET /admin/logs/{mongo_id}
 
----
+------------------------------------------------------------------------
 
-## 파이프라인 흐름
+# Environment Variables (환경 변수 / 環境変数)
 
-```
-사용자 질문
-    │
-    ▼
-① InputService       — 입력 검증, Query 객체 생성 (UUID 부여)
-    │
-    ▼
-② NormalizationService — 동의어 사전으로 질병명 표준화
-    │
-    ▼
-③ RoutingService     — 키워드 매칭으로 사용할 Retriever 선택
-    │                   (common은 항상 포함)
-    ▼
-④ RetrieverLoader    — Retriever 클래스 동적 임포트 및 인스턴스 생성
-    │
-    ▼
-⑤ Retriever 실행     — FAISS 검색 → 각 Retriever의 prompt|llm 체인으로 답변 생성
-    │
-    ▼
-⑥ AggregatorService  — 각 Retriever 답변을 마크다운 섹션으로 병합·중복 제거
-    │
-    ▼
-⑦ SummarizerService  — LLM으로 최종 답변 합성 (검색된 컨텍스트 범위 내)
-    │
-    ▼
-⑧ MongoDB 저장       — 질의·답변·컨텍스트·지연시간 영구 보관
-    │
-    ▼
-JSON 응답 반환
-```
+.env example
 
----
+    MONGODB_URI=mongodb://localhost:27017
+    MONGODB_DB=openai
+    MONGODB_COLLECTION=2026cidc
 
-## Retriever 목록
+    ADMIN_TOKEN=your_admin_token
 
-| Retriever | 대상 감염병 분류 | FAISS 인덱스 |
-|-----------|----------------|-------------|
-| `common` | 공통 (항상 포함) | ✅ |
-| `respiratory` | 호흡기 감염병 (인플루엔자, 코로나19 등) | ✅ |
-| `water_food` | 수인성·식품매개 감염병 (콜레라, 장티푸스 등) | ✅ |
-| `sexual_blood` | 성매개·혈액매개 감염병 (HIV, 매독 등) | ✅ |
-| `zoonotic` | 인수공통 감염병 (말라리아, 뎅기열 등) | ✅ |
-| `tick` | 기생충·진드기매개 감염병 | ✅ |
-| `vaccine` | 예방접종 대상 감염병 (홍역, 수두 등) | ✅ |
-| `healthcare` | 의료관련 감염병 (MRSA, CRE 등) | ✅ |
-| `bioterror_A` | 생물테러 감염병 A군 (두창, 탄저 등) | ✅ |
-| `bioterror_B` | 생물테러 감염병 B군 (SARS, MERS 등) | ✅ |
-| `etc` | 기타 감염병 (수족구병, 한센병 등) | ✅ |
-| `tb` | 결핵 | ❌ 미구비 |
+------------------------------------------------------------------------
 
----
+# Running the Server (서버 실행 / サーバー実行)
 
-## 어드민 패널
+설치 (インストール)
 
-`GET /admin`으로 접속하면 질의 로그를 조회할 수 있는 관리자 페이지가 제공됩니다.
-로그 API 호출 시에는 HTTP 헤더에 `X-ADMIN-TOKEN` 값을 포함해야 합니다.
+    poetry install
 
-```
-X-ADMIN-TOKEN: {ADMIN_TOKEN 환경변수 값}
-```
+실행 (実行)
 
----
+    poetry run uvicorn main:app --reload
 
-## 새 Retriever 추가 방법
+서버 주소 (サーバーURL)
 
-1. `app/retrievers/{name}.py` 파일 생성, `{PascalCase}Retriever` 클래스 정의 (`BaseRetriever` 상속)
-2. `super().__init__("{name}", llm, embeddings)` 호출 — `{name}`은 FAISS 인덱스 폴더명과 일치해야 함
-3. `_build_prompt()` 메서드 구현 — `{context}`, `{question}` 변수를 포함한 `PromptTemplate` 반환
-4. `app/services/routing_service.py`의 `routing_rules`에 라우팅 키워드 추가
-5. FAISS 인덱스를 `resources/vectorstore/{name}/` 디렉터리에 배치 (`index.faiss`, `index.pkl`)
+    http://localhost:8000
 
----
+------------------------------------------------------------------------
 
-## 알려진 이슈
+# Frontend (프론트엔드 / フロントエンド)
 
-- **`bioterror_A` / `bioterror_B` 클래스명 불일치** — `RetrieverLoader`는 `BioterrorARetriever` / `BioterrorBRetriever`를 기대하지만, 실제 파일은 `BioterrorRetriever` / `BioterrorRetriever_B`로 정의되어 있습니다. FAISS 폴더 초기화 경로도 수정이 필요합니다.
-- **정규화는 첫 번째 매칭에서 중단** — 하나의 질문에 여러 질병명이 포함된 경우 첫 번째만 정규화됩니다.
-- **라우팅은 단순 부분 문자열 매칭** — 짧은 키워드가 유사한 질병명에 의도치 않게 매칭될 수 있습니다.
-- **`tb` Retriever** — 클래스는 존재하나 FAISS 인덱스(`resources/vectorstore/tb/`)가 없어 동작하지 않습니다.
-- **`web/router.py`** — `main.py`에 마운트되지 않은 미사용 코드입니다.
+Frontend는 별도의 React 프로젝트에서 제공된다.\
+(フロントエンドは別のReactプロジェクトとして提供される)
+
+Busan Chatbot Frontend
+
+기술 스택 (技術スタック)
+
+-   React 19
+-   Vite
+-   React Router
+-   React Markdown
+
+Frontend URL
+
+    http://localhost:5173
+
+Backend API
+
+    http://localhost:8000
+
+------------------------------------------------------------------------
+
+# Authors (개발자 / 開発者)
+
+Developed for Busan Infectious Disease Management Support Unit.\
+(釜山感染症管理支援団向けに開発)
+
+Developers (開発者)
+
+-   Jinbum Joo
+-   Hyeong Dohoon
+
+Digital Smart Busan Academy\
+Pukyong National University
