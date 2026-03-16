@@ -1,0 +1,116 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8"/>
+  <title>RAG Logs Admin</title>
+  <style>
+    body { font-family: Arial, sans-serif; margin: 24px; }
+    .row { display:flex; gap: 8px; margin-bottom: 12px; flex-wrap: wrap; }
+    input { padding: 8px; width: 360px; }
+    button { padding: 8px 12px; cursor:pointer; }
+    pre { background:#f6f6f6; padding:12px; overflow:auto; }
+    table { border-collapse: collapse; width: 100%; }
+    th, td { border: 1px solid #ddd; padding: 8px; vertical-align: top; }
+    th { background:#fafafa; }
+    a { cursor:pointer; color:#0b66c3; }
+    .muted { color:#777; font-size: 12px; }
+
+    /* 추가 */
+    .answer-preview { color:#333; font-size: 13px; }
+  </style>
+</head>
+<body>
+  <h2>RAG Logs Admin</h2>
+
+  <div class="row">
+    <input id="q" placeholder="검색어(raw/normalized)"/>
+    <button onclick="search()">Search</button>
+    <button onclick="loadRecent()">Recent</button>
+    <span class="muted">※ 토큰 입력 후 조회 가능</span>
+  </div>
+
+  <div class="row">
+    <input id="token" placeholder="X-ADMIN-TOKEN 값(환경변수 ADMIN_TOKEN)"/>
+  </div>
+
+  <table id="tbl">
+    <thead>
+      <tr>
+        <th style="width:60px;">No</th>
+        <th style="width:220px;">time</th>
+        <th>query</th>
+        <th style="width:320px;">answer</th>
+        <th style="width:220px;">retrievers</th>
+        <th style="width:80px;">grade</th>
+        <th style="width:120px;">latency</th>
+      </tr>
+    </thead>
+    <tbody></tbody>
+  </table>
+
+  <h3>Detail</h3>
+  <pre id="detail"></pre>
+
+<script>
+  function headers() {
+    const t = document.getElementById("token").value.trim();
+    return { "X-ADMIN-TOKEN": t };
+  }
+
+  async function loadRecent() {
+    const res = await fetch("/admin/logs?limit=50", { headers: headers() });
+    const data = await res.json();
+    render(data);
+  }
+
+  async function search() {
+    const q = document.getElementById("q").value.trim();
+    if (!q) return loadRecent();
+    const res = await fetch(`/admin/logs/search?q=${encodeURIComponent(q)}&limit=50`, { headers: headers() });
+    const data = await res.json();
+    render(data);
+  }
+
+  function render(rows) {
+    const tbody = document.querySelector("#tbl tbody");
+    tbody.innerHTML = "";
+
+    rows.forEach((r, idx) => {
+      const tr = document.createElement("tr");
+
+      const queryPreview = (r.normalized_query || r.raw_query || "").slice(0, 80);
+
+      const answerPreview = (r.final_answer || "")
+        .replace(/\s+/g, " ")
+        .trim()
+        .slice(0, 140);
+
+      tr.innerHTML = `
+        <td>${idx + 1}</td>
+        <td>${r.query_time || ""}</td>
+        <td>
+          <a onclick="detail('${r._id}')">
+            ${queryPreview}
+          </a>
+        </td>
+        <td class="answer-preview">${answerPreview}</td>
+        <td>${(r.retrievers_used || []).join(", ")}</td>
+        <td>${r.grade ?? ""}</td>
+        <td>${r.latency_ms ?? ""}</td>
+      `;
+      tbody.appendChild(tr);
+    });
+  }
+
+  async function detail(id) {
+    const res = await fetch(`/admin/logs/${id}`, { headers: headers() });
+    const data = await res.json();
+
+    // final_answer가 있으면 위에 보이도록 JSON 그대로 표시
+    document.getElementById("detail").textContent = JSON.stringify(data, null, 2);
+  }
+
+  loadRecent();
+</script>
+</body>
+</html>
