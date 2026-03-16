@@ -37,4 +37,4 @@ class BaseRetriever(ABC):
             {"context": context, "question": question}
         )
 
-        return {"answer": answer, "context": context}
+        return {"answer": answer, "context": context, "docs": docs}
