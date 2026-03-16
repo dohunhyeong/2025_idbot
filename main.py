@@ -21,6 +21,7 @@ from app.services.source_service import SourceService
 
 from app.core.llm_service import LLMService
 from app.core.embedding_service import EmbeddingService
+from app.core.tracing_service import TracingService
 
 from infra.mongodb.mongo_client import MongoClientProvider
 from infra.mongodb.query_log_repository import QueryLogRepository
@@ -42,6 +43,9 @@ app.add_middleware(
 app.include_router(admin_router)
 
 logger = logging.getLogger("uvicorn.error")
+
+# Tracing
+tracing_service = TracingService()
 
 # LLM
 llm = LLMService().get_llm()
@@ -76,7 +80,8 @@ pipeline = RagPipeline(
     summarizer_service=summarizer,
     logging_service=logging_service,
     grade_service=grade_service,
-    source_service=source_service
+    source_service=source_service,
+    tracing_service=tracing_service,
 )
 
 
