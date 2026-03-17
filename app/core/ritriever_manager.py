@@ -1,7 +1,7 @@
 from app.retrievers.common import CommonRetriever
 from app.retrievers.respiratory import RespiratoryRetriever
-from app.retrievers.bioterror_A import BioterrorRetriever_A
-from app.retrievers.bioterror_B import BioterrorRetriever_B
+from app.retrievers.bioterror_A import BioterrorARetriever
+from app.retrievers.bioterror_B import BioterrorBRetriever
 from app.retrievers.water_food import WaterFoodRetriever
 from app.retrievers.zoonotic import ZoonoticRetriever
 from app.retrievers.etc import EtcRetriever
@@ -20,8 +20,8 @@ class RetrieverManager:
         # 🔹 Retriever 인스턴스 registry
         self.registry = {
             "common": CommonRetriever(self.llm, self.embeddings),
-            "bioterror_A": BioterrorRetriever_A(self.llm, self.embeddings),
-            "bioterror_B": BioterrorRetriever_B(self.llm, self.embeddings),
+            "bioterror_A": BioterrorARetriever(self.llm, self.embeddings),
+            "bioterror_B": BioterrorBRetriever(self.llm, self.embeddings),
             "respiratory": RespiratoryRetriever(self.llm, self.embeddings),
             "water_food": WaterFoodRetriever(self.llm, self.embeddings),
             "zoonotic": ZoonoticRetriever(self.llm, self.embeddings),

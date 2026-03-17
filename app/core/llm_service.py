@@ -5,7 +5,7 @@ class LLMService:
 
     def __init__(self):
         self.llm = ChatOllama(
-            model="exaone3.5:7.8b",
+            model="exaone3.5:latest",
             temperature=0,
             num_ctx=32768
         )
