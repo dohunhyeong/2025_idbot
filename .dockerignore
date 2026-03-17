@@ -1,0 +1,15 @@
+.git
+.gitignore
+.DS_Store
+.env
+.claude
+
+__pycache__
+**/__pycache__
+**/*.pyc
+**/*.pyo
+
+RAG_qa.xlsx
+run_batch_trace.py
+
+*.md
