@@ -4,4 +4,7 @@ class LoggingService:
         self.repo = repo
 
     async def save(self, doc):
-        return await self.repo.insert_one(doc)
+        try:
+            return await self.repo.insert_one(doc)
+        except Exception:
+            return None

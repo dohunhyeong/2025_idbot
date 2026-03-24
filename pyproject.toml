@@ -26,7 +26,10 @@ dependencies = [
     "matplotlib (>=3.10.8,<4.0.0)",
     "openpyxl (>=3.1.5,<4.0.0)",
     "numpy (>=2.1,<2.3)",
-    "langchain-text-splitters (>=0.3,<1.0)"
+    "langchain-text-splitters (>=0.3,<1.0)",
+    "ragas (>=0.4.3,<0.5.0)",
+    "dataset (>=1.6.2,<2.0.0)",
+    "datasets (>=4.8.3,<5.0.0)"
 ]
 
 

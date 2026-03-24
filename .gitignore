@@ -49,3 +49,4 @@ logs/
 *.pem
 *.key
 credentials.json
+docs/

@@ -1,6 +1,9 @@
+import os
 import time
 import asyncio
 from datetime import datetime, timezone
+
+TRACE_NAME = os.getenv("TRACE_NAME", "RAG_RAGAS")
 
 
 class RagPipeline:
@@ -42,7 +45,7 @@ class RagPipeline:
         query_obj = self.input_service.create_query(user_query)
 
         # [TRACE 시작]
-        trace = ts.start_trace(trace_id=query_obj.id, name="rag_pipeline", input=user_query)
+        trace = ts.start_trace(trace_id=query_obj.id, name=TRACE_NAME, input=user_query)
 
         # 2️⃣ Intent 처리
         # [SPAN] intent_detection
@@ -155,6 +158,7 @@ class RagPipeline:
         retriever_results = []
         answers_for_merge = []
         common_urls = []
+        all_contexts: list[str] = []
 
         for name, payload in zip(query_obj.retrievers, results):
 
@@ -175,6 +179,11 @@ class RagPipeline:
                 "answer": payload["answer"],
                 "context": payload["context"]
             })
+
+            for doc in docs:
+                chunk = doc.page_content.strip()
+                if chunk and chunk not in all_contexts:
+                    all_contexts.append(chunk)
 
             answers_for_merge.append((name, payload["answer"]))
 
@@ -244,4 +253,6 @@ class RagPipeline:
             "retrievers_used": query_obj.retrievers,
             "latency_ms": latency_ms,
             "answer": final_answer,
+            "aggregated_text": aggregated_text,
+            "contexts": all_contexts,
         }
